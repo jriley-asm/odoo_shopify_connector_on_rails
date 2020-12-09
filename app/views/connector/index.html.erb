@@ -1,3 +1,13 @@
 <p>
   <%= link_to 'Queue New Odoo Product Collection Job', "/connector/queue_get_products_job" %>
 </p>
+
+<h1>Product Statuses:</h1>
+<ul>
+  <% @products.each do |product| %>
+  <li>
+    <div>Pull Status: <%= product.pull_status %></div>
+    <div>Push Status: <%= product.push_status %></div>
+  </li>
+  <% end %>
+</ul>

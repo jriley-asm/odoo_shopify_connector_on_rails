@@ -6,8 +6,12 @@ class InjectOddooProductJob < ApplicationJob
   SHOP_NAME = "test-store-4325"
 
   def perform(*args)
+    #get product id
     product_to_request = args[0]
-    # Do something later
+
+    #create a new product entry, this is how we keep track of the products status outside of the job
+    this_product_model = Product.new
+    #connect and authenticate with odoo
     info = XMLRPC::Client.new2('https://demo.odoo.com/start').call('start')
     url, db, username, password = \
         info['host'], info['database'], info['user'], info['password']
@@ -17,17 +21,17 @@ class InjectOddooProductJob < ApplicationJob
     models.execute_kw(db, uid, password,
     'product.product', 'check_access_rights',
     ['read'], {raise_exception: false})
-    @ids = models.execute_kw(db, uid, password,
-    'product.product', 'search',
-    [[]])
 
+    #get the product record we're after from odoo
     product_rec = models.execute_kw(db, uid, password,
     'product.product', 'read',
     [[product_to_request]])
 
+    #for some reason this product rec is an array, we want its first element which is a "Hash" class
     product_rec_hash = product_rec[0]
 
     if product_rec_hash.kind_of?(Hash)
+      this_product_model.pull_status = "Success"
       #only want to inject the product if we actually got a product from odoo this iteration of the queue
       ### AWS STEP GATE HERE ###
 
@@ -43,6 +47,19 @@ class InjectOddooProductJob < ApplicationJob
       new_product.price = product_rec_hash['price']
       new_product.weight = product_rec_hash['weight']
       new_product.weight_unit = product_rec_hash['weight_uom_name']
-      new_product.save
+      #...
+      #save the new product and return whether or not we actually succeeded
+      saved_product_shopify = new_product.save
+
+      if saved_product_shopify
+        this_product_model.push_status = "Success"
+      else
+        this_product_model.pull_status = "Failed"
+      end
+    else
+      #we did not recieve the right value from odoo
+      this_product_model.pull_status = "Failed"
+    end
+    this_product_model.save
   end
 end

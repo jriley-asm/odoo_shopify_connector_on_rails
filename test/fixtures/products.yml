@@ -1,0 +1,9 @@
+# Read about fixtures at https://api.rubyonrails.org/classes/ActiveRecord/FixtureSet.html
+
+one:
+  pull_status: MyString
+  push_status: MyString
+
+two:
+  pull_status: MyString
+  push_status: MyString

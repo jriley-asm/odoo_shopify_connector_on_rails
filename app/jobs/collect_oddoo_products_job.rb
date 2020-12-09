@@ -19,8 +19,10 @@ class CollectOddooProductsJob < ApplicationJob
     ### AWS STEP GATE HERE ###
     # make sure we actually got products correctly
     if @ids.kind_of?(Array)
+    
       @ids.each do |id|
         InjectOddooProductJob.perform_later(id)
       end
+    end
   end
 end
