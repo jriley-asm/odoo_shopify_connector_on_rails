@@ -6,6 +6,8 @@
 <ul>
   <% @products.each do |product| %>
   <li>
+    <div>Odoo id: <%= product.odoo_id %></div>
+    <div>Name: <%= product.name %></div>
     <div>Pull Status: <%= product.pull_status %></div>
     <div>Push Status: <%= product.push_status %></div>
   </li>

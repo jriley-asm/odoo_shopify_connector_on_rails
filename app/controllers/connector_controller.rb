@@ -5,6 +5,7 @@ class ConnectorController < ApplicationController
   end
 
   def queue_get_products_job
-    CollectOddooProductsJob.set(wait: 3.second).perform_later(@this_product_batch)
+    CollectOddooProductsJob.perform_later
+    redirect_back(fallback_location: { action: "index"})
   end
 end

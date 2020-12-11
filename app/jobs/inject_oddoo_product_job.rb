@@ -7,11 +7,9 @@ class InjectOddooProductJob < ApplicationJob
 
   def perform(*args)
     #get product id
-    product_to_request = args[0]
+    product_rec_hash = args[0]
+    variant_id_arr = args[1]
 
-    #create a new product entry, this is how we keep track of the products status outside of the job
-    this_product_model = Product.new
-    #connect and authenticate with odoo
     info = XMLRPC::Client.new2('https://demo.odoo.com/start').call('start')
     url, db, username, password = \
         info['host'], info['database'], info['user'], info['password']
@@ -21,16 +19,25 @@ class InjectOddooProductJob < ApplicationJob
     models.execute_kw(db, uid, password,
     'product.product', 'check_access_rights',
     ['read'], {raise_exception: false})
-
-    #get the product record we're after from odoo
-    product_rec = models.execute_kw(db, uid, password,
+    variants = models.execute_kw(db, uid, password,
     'product.product', 'read',
-    [[product_to_request]])
+    [variant_id_arr])
 
-    #for some reason this product rec is an array, we want its first element which is a "Hash" class
-    product_rec_hash = product_rec[0]
+    #puts JSON.pretty_generate(variants[0])
 
-    if product_rec_hash.kind_of?(Hash)
+    #create a new product entry, this is how we keep track of the products status outside of the job
+    #connect and authenticate with odoo
+
+    #make sure this product is both valid and unique; if we already have this product in our local DB, don't create a new one.
+
+    puts "product variant count:  #{variants.length}"
+
+    if Product.where(odoo_id: product_rec_hash['id']).count == 0
+      puts 'working on new product!'
+      this_product_model = Product.new
+      this_product_model.odoo_id = Integer(product_rec_hash['id'])
+      this_product_model.name = product_rec_hash['name']
+      #as in this is a new product
       this_product_model.pull_status = "Success"
       #only want to inject the product if we actually got a product from odoo this iteration of the queue
       ### AWS STEP GATE HERE ###
@@ -42,24 +49,113 @@ class InjectOddooProductJob < ApplicationJob
       ShopifyAPI::Base.site = shop_url
       ShopifyAPI::Base.api_version = "2020-10"
 
+
+      shopify_friendly_variant_arr = []
+
+      #puts variants.class
+      variants.each_with_index do |variant, variant_index|
+        puts "current index: #{variant_index}"
+        variant_hash = {
+          'weight' => variant['weight'],
+          'price' => variant['price'],
+          'weight_unit' => variant['weight_uom_name'],
+          'inventory_policy' => "deny",
+          'inventory_management' => "shopify",
+          'inventory_quantity' => Integer(variant['qty_available'])
+        }
+        if variant['code'] != false
+          variant_hash['sku'] = variant['code']
+        end
+
+        puts 'first hash print: '
+        #puts JSON.pretty_generate(variant_hash)
+
+
+        #now we want to add the options (option1, option2 etc for shopify to this shopify variant hash)
+        #using the attributes associated with this ODOO product variant
+        this_variant_attribute_ids = variant['attribute_line_ids']
+
+        this_variant_attributes = models.execute_kw(db, uid, password,
+        'product.attribute', 'read',
+        [this_variant_attribute_ids])
+
+        puts "attribute count: #{this_variant_attributes.length}"
+
+        this_variant_attributes.each_with_index do |attr, index|
+          #we want to do two things in this loop, attatch each applicable option to the shopify variant hash
+          #and we want to pull the Odoo attribute values for this attribute/variant
+          #then we want to include those (or that one, because it should be an individual value in this case since we're dealing with a product variant.)
+          product_attribute_values = models.execute_kw(db, uid, password,
+          'product.attribute.value', 'read',
+          [[attr['id']]])
+
+          if product_attribute_values.length > 1
+            puts 'TOO MANY ATTRIBUTES!!!'
+          elsif product_attribute_values.length == 1
+            variant_hash["option#{(index+1)}"] = product_attribute_values[0]['name'] #should be option1, option2 etc
+          else
+            puts 'thought there were no attribute values for this attribute'
+          end
+        end
+
+        puts 'second hash print: '
+
+        #puts JSON.pretty_generate(variant_hash)
+        shopify_friendly_variant_arr.append(variant_hash)
+      end
+
       new_product = ShopifyAPI::Product.new
       new_product.title = product_rec_hash['name']
-      new_product.price = product_rec_hash['price']
-      new_product.weight = product_rec_hash['weight']
-      new_product.weight_unit = product_rec_hash['weight_uom_name']
+
+      #need a list of product attributes
+      #attribute_line_ids from odoo
+      #this seems to be the way Odoo keeps track of product variant options
+      #we need to present a list of these options to shopify
+
+      odoo_product_atrribute_ids = product_rec_hash['attribute_line_ids']
+
+      attributes = models.execute_kw(db, uid, password,
+      'product.template.attribute.line', 'read',
+      [odoo_product_atrribute_ids])
+
+      #puts 'ABOUT TO SHOW ATTRIBUTES:'
+
+      #puts JSON.pretty_generate(attributes)
+
+      shopify_options_arr = []
+
+      attributes.each do |attr|
+        option = {
+          "name" => attr['display_name']
+        }
+        shopify_options_arr.append(option)
+      end
+
+      puts shopify_options_arr
+
+
+      #new_product.options = shopify_options_arr
+      #new_product.variants = shopify_friendly_variant_arr
+      #this needs to account for variations
+
       #...
-      #save the new product and return whether or not we actually succeeded
-      saved_product_shopify = new_product.save
+      #save the new product and return whether or not we actually succeed
+      puts shopify_options_arr
+      if shopify_options_arr.length > 0
+        puts 'thinks it should save shopify product'
+        saved_product_shopify = new_product.save
+      end
+      #saved_product_shopify = false
 
       if saved_product_shopify
         this_product_model.push_status = "Success"
       else
-        this_product_model.pull_status = "Failed"
+        this_product_model.push_status = "Failed"
       end
+      #this_product_model.save
     else
-      #we did not recieve the right value from odoo
-      this_product_model.pull_status = "Failed"
+      #this product already exists, we want to go ahead and update this product now
+      puts 'we should update this product'
     end
-    this_product_model.save
   end
 end

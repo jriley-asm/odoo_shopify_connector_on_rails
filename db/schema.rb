@@ -10,17 +10,10 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 2020_12_09_013109) do
+ActiveRecord::Schema.define(version: 2020_12_09_200313) do
 
   create_table "product_batches", force: :cascade do |t|
     t.string "status"
-    t.datetime "created_at", precision: 6, null: false
-    t.datetime "updated_at", precision: 6, null: false
-  end
-
-  create_table "products", force: :cascade do |t|
-    t.string "pull_status"
-    t.string "push_status"
     t.datetime "created_at", precision: 6, null: false
     t.datetime "updated_at", precision: 6, null: false
   end
