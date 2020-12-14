@@ -3,9 +3,11 @@ class CollectOddooProductsJob < ApplicationJob
 
   def perform(*args)
     # Do something later
-    info = XMLRPC::Client.new2('https://demo.odoo.com/start').call('start')
-    url, db, username, password = \
-        info['host'], info['database'], info['user'], info['password']
+    url = "https://demo56.odoo.com"
+    db = "demo56"
+    username = "jack@assembleinc.com"
+    #API KEY
+    password = "c1d384f62e88c92daaf52201448ea630069f8412"
     common = XMLRPC::Client.new2("#{url}/xmlrpc/2/common")
     uid = common.call('authenticate', db, username, password, {})
     models = XMLRPC::Client.new2("#{url}/xmlrpc/2/object").proxy
@@ -15,13 +17,13 @@ class CollectOddooProductsJob < ApplicationJob
     ids = models.execute_kw(db, uid, password,
     'product.template', 'search',
     [[]])
-
     # now that we have the ids we need, lets go ahead and batch read these products
     #this returns an array of json objects representing the products
 
     product_records = models.execute_kw(db, uid, password,
     'product.template', 'read',
-    [ids])
+    [[9]])
+    #[ids])
 
     ### FOR TESTING ###
     #product_records = [product_records[0]]

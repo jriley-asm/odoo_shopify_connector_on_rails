@@ -33,7 +33,7 @@ class InjectOddooProductJob < ApplicationJob
     puts "product variant count:  #{variants.length}"
 
     if Product.where(odoo_id: product_rec_hash['id']).count == 0
-      puts 'working on new product!'
+      puts "working on product: #{product_rec_hash['name']}"
       this_product_model = Product.new
       this_product_model.odoo_id = Integer(product_rec_hash['id'])
       this_product_model.name = product_rec_hash['name']
@@ -49,25 +49,49 @@ class InjectOddooProductJob < ApplicationJob
       ShopifyAPI::Base.site = shop_url
       ShopifyAPI::Base.api_version = "2020-10"
 
+      new_product = ShopifyAPI::Product.new
+      new_product.title = product_rec_hash['name']
 
-      shopify_friendly_variant_arr = []
+      shopify_options_arr = []
 
+      odoo_product_atrribute_ids = product_rec_hash['attribute_line_ids']
+
+      attributes = models.execute_kw(db, uid, password,
+      'product.template.attribute.line', 'read',
+      [odoo_product_atrribute_ids])
+
+      attributes.each do |attr|
+        option = ShopifyAPI::Option.new(
+          "name" => attr['display_name']
+        )
+        shopify_options_arr.append(option)
+      end
+
+      puts shopify_options_arr
+
+      new_product.options = shopify_options_arr
+      new_product.save
       #puts variants.class
       variants.each_with_index do |variant, variant_index|
-        puts "current index: #{variant_index}"
-        variant_hash = {
-          'weight' => variant['weight'],
-          'price' => variant['price'],
-          'weight_unit' => variant['weight_uom_name'],
-          'inventory_policy' => "deny",
+        #puts "current index: #{variant_index}"
+        variant_hash = ShopifyAPI::Variant.new(
+          #'weight' => variant['weight'],
+          'product_id' => new_product.id,
+          'price' => Float(variant['price']),#,
+          #'weight_unit' => variant['weight_uom_name'],
+          #'inventory_policy' => "deny",
           'inventory_management' => "shopify",
           'inventory_quantity' => Integer(variant['qty_available'])
-        }
+        )
+        #puts variant_hash.price
+
         if variant['code'] != false
-          variant_hash['sku'] = variant['code']
+          puts 'thinks there is a variant hash code'
+          variant_hash.sku = variant['code']
+          puts "added sku: #{variant_hash.sku}"
         end
 
-        puts 'first hash print: '
+        #puts 'first hash print: '
         #puts JSON.pretty_generate(variant_hash)
 
 
@@ -79,7 +103,7 @@ class InjectOddooProductJob < ApplicationJob
         'product.attribute', 'read',
         [this_variant_attribute_ids])
 
-        puts "attribute count: #{this_variant_attributes.length}"
+        #puts "attribute count: #{this_variant_attributes.length}"
 
         this_variant_attributes.each_with_index do |attr, index|
           #we want to do two things in this loop, attatch each applicable option to the shopify variant hash
@@ -90,60 +114,58 @@ class InjectOddooProductJob < ApplicationJob
           [[attr['id']]])
 
           if product_attribute_values.length > 1
-            puts 'TOO MANY ATTRIBUTES!!!'
+            puts 'TOO MANY ATTRIBUTE VALUES!!!'
           elsif product_attribute_values.length == 1
-            variant_hash["option#{(index+1)}"] = product_attribute_values[0]['name'] #should be option1, option2 etc
+            puts 'pass'
+            #you can only define up to three options
+            new_option_name = product_attribute_values[0]['name']
+            puts new_option_name
+            case index
+            when 0
+              variant_hash.option1 = new_option_name
+            when 1
+              variant_hash.option2 = new_option_name
+            when 2
+              variant_hash.option2 = new_option_name
+            end
+            puts 'here'
+            puts "Saved variant hash? #{variant_hash.save}"
           else
             puts 'thought there were no attribute values for this attribute'
           end
         end
-
-        puts 'second hash print: '
-
-        #puts JSON.pretty_generate(variant_hash)
-        shopify_friendly_variant_arr.append(variant_hash)
+        #new_product.save
+        puts "about to share variant hash id"
+        puts "variant hash id: #{variant_hash.id}"
+        #new_product.variants << variant_hash
       end
 
-      new_product = ShopifyAPI::Product.new
-      new_product.title = product_rec_hash['name']
+
 
       #need a list of product attributes
       #attribute_line_ids from odoo
       #this seems to be the way Odoo keeps track of product variant options
       #we need to present a list of these options to shopify
 
-      odoo_product_atrribute_ids = product_rec_hash['attribute_line_ids']
-
-      attributes = models.execute_kw(db, uid, password,
-      'product.template.attribute.line', 'read',
-      [odoo_product_atrribute_ids])
+      puts 'got this far'
 
       #puts 'ABOUT TO SHOW ATTRIBUTES:'
 
       #puts JSON.pretty_generate(attributes)
-
-      shopify_options_arr = []
-
-      attributes.each do |attr|
-        option = {
-          "name" => attr['display_name']
-        }
-        shopify_options_arr.append(option)
-      end
-
-      puts shopify_options_arr
-
-
-      #new_product.options = shopify_options_arr
-      #new_product.variants = shopify_friendly_variant_arr
       #this needs to account for variations
 
       #...
       #save the new product and return whether or not we actually succeed
-      puts shopify_options_arr
+      #puts shopify_options_arr
+
+      new_product.save
+      puts 'HERE'
+      puts new_product.id
+
       if shopify_options_arr.length > 0
         puts 'thinks it should save shopify product'
         saved_product_shopify = new_product.save
+        puts "saved the product in shopify: #{saved_product_shopify}"
       end
       #saved_product_shopify = false
 
@@ -152,6 +174,8 @@ class InjectOddooProductJob < ApplicationJob
       else
         this_product_model.push_status = "Failed"
       end
+
+
       #this_product_model.save
     else
       #this product already exists, we want to go ahead and update this product now
