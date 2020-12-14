@@ -10,15 +10,18 @@ class InjectOddooProductJob < ApplicationJob
     product_rec_hash = args[0]
     variant_id_arr = args[1]
 
-    info = XMLRPC::Client.new2('https://demo.odoo.com/start').call('start')
-    url, db, username, password = \
-        info['host'], info['database'], info['user'], info['password']
+    url = "https://demo56.odoo.com"
+    db = "demo56"
+    username = "jack@assembleinc.com"
+    #API KEY
+    password = "c1d384f62e88c92daaf52201448ea630069f8412"
     common = XMLRPC::Client.new2("#{url}/xmlrpc/2/common")
     uid = common.call('authenticate', db, username, password, {})
     models = XMLRPC::Client.new2("#{url}/xmlrpc/2/object").proxy
     models.execute_kw(db, uid, password,
     'product.product', 'check_access_rights',
     ['read'], {raise_exception: false})
+
     variants = models.execute_kw(db, uid, password,
     'product.product', 'read',
     [variant_id_arr])
@@ -49,10 +52,11 @@ class InjectOddooProductJob < ApplicationJob
       ShopifyAPI::Base.site = shop_url
       ShopifyAPI::Base.api_version = "2020-10"
 
+      #puts new_product.options.size
+
       new_product = ShopifyAPI::Product.new
       new_product.title = product_rec_hash['name']
-
-      shopify_options_arr = []
+      new_product.save
 
       odoo_product_atrribute_ids = product_rec_hash['attribute_line_ids']
 
@@ -60,19 +64,28 @@ class InjectOddooProductJob < ApplicationJob
       'product.template.attribute.line', 'read',
       [odoo_product_atrribute_ids])
 
+      puts new_product.options.size
+
+      #new_product.options.delete_at(0)
+      #new_product.save
+
+
+
       attributes.each do |attr|
-        option = ShopifyAPI::Option.new(
-          "name" => attr['display_name']
-        )
-        shopify_options_arr.append(option)
+        option_name = String(attr['display_name'])
+        puts option_name
+        new_product.options.append(ShopifyAPI::Option.new(:name => option_name))
+        #puts "Saved new option? #{option.save}"
+        puts 'here'
       end
 
-      puts shopify_options_arr
-
-      new_product.options = shopify_options_arr
-      new_product.save
+      puts new_product.options.size
+      #puts "Saving product after adding options: #{new_product.save}"
+      #puts shopify_options_arr
+      #puts "Saved new product? #{new_product.save}"
       #puts variants.class
       variants.each_with_index do |variant, variant_index|
+        puts variant['name']
         #puts "current index: #{variant_index}"
         variant_hash = ShopifyAPI::Variant.new(
           #'weight' => variant['weight'],
@@ -80,9 +93,12 @@ class InjectOddooProductJob < ApplicationJob
           'price' => Float(variant['price']),#,
           #'weight_unit' => variant['weight_uom_name'],
           #'inventory_policy' => "deny",
-          'inventory_management' => "shopify",
-          'inventory_quantity' => Integer(variant['qty_available'])
+          #'inventory_management' => "shopify",
+          #'inventory_quantity' => Integer(variant['qty_available'])
         )
+        #puts "variant has option 1? #{variant_hash.respond_to?(:option1)}"
+        #variant_hash.option1 = variant['name']
+        #puts "option1: #{variant_hash.option1}"
         #puts variant_hash.price
 
         if variant['code'] != false
@@ -125,11 +141,14 @@ class InjectOddooProductJob < ApplicationJob
               variant_hash.option1 = new_option_name
             when 1
               variant_hash.option2 = new_option_name
+            # title is our first option here
             when 2
-              variant_hash.option2 = new_option_name
+              variant_hash.option3 = new_option_name
             end
+
             puts 'here'
             puts "Saved variant hash? #{variant_hash.save}"
+            puts 'past issue'
           else
             puts 'thought there were no attribute values for this attribute'
           end
