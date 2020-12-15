@@ -117,7 +117,6 @@ class InjectOddooProductJob < ApplicationJob
           "options" => shopify_options_arr
         }
       }
-      puts product
 
       uri = URI(shop_url)
       http = Net::HTTP.new(uri.host, uri.port)
@@ -152,6 +151,12 @@ class InjectOddooProductJob < ApplicationJob
   #returns false if...well just apply binary logic
   #i hate this code but i dont see an alternative
   def check_for_redundant_variant(variants, variant_to_check)
+    puts "called check for redundant"
+    puts variants.size
+    #if there are no existing variants, redundancy is not possible
+    if variants.size == 0
+      return false
+    end
     variants.each do |curr_variant|
       curr_variant_option_count = 0
       #first we want to figure out how many options are we checking
@@ -159,14 +164,17 @@ class InjectOddooProductJob < ApplicationJob
         curr_variant_option_count = 1
       end
 
-      if variant_.key?("option1") && variant.key?("option2")
+      if variant_to_check.key?("option1") && variant_to_check.key?("option2")
         curr_variant_option_count = 2
       end
 
-      if variant.key?("option1") && variant.key?("option2") && variant.key?("option3")
+      if variant_to_check.key?("option1") && variant_to_check.key?("option2") && variant_to_check.key?("option3")
         curr_variant_option_count = 3
       end
 
+      puts curr_variant_option_count
+
+      #then we compare those options
       case curr_variant_option_count
       when 1
         if curr_variant['option1'] == variant_to_check['option1']
