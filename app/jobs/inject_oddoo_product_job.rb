@@ -46,9 +46,35 @@ class InjectOddooProductJob < ApplicationJob
       ### AWS STEP GATE HERE ###
 
       #use shopify api gem to talk to shopify here
+      require 'net/https'
+      require 'json'
+      puts "here"
+      shop_url = "https://#{API_KEY}:#{PASSWORD}@#{SHOP_NAME}.myshopify.com" + "/admin/api/2020-10/products.json"
+
+      puts shop_url
+
+      #header = {'Content-Type': 'text/json'}
+      product = {
+        "title" => "Burton Custom Freestyle 151"
+      }
+      puts "got here"
+
+      uri = URI(shop_url)
+      http = Net::HTTP.new(uri.host, uri.port)
+      http.use_ssl = true
+      request = Net::HTTP::Get.new(uri)
+
+      request['X-Shopify-Access-Token'] = PASSWORD
+
+      #request = Net::HTTP::Get.new URI(shop_url)#, body: product)
+      response = http.request(request)
+      #request.each_header { |header| puts header }
+      #response =
+      puts "got there"
+      puts response.body
 
       require 'shopify_api'
-      shop_url = "https://#{API_KEY}:#{PASSWORD}@#{SHOP_NAME}.myshopify.com"
+
       ShopifyAPI::Base.site = shop_url
       ShopifyAPI::Base.api_version = "2020-10"
 
@@ -66,7 +92,7 @@ class InjectOddooProductJob < ApplicationJob
 
       puts new_product.options.size
 
-      #new_product.options.delete_at(0)
+      new_product.options.delete_at(0)
       #new_product.save
 
 
@@ -78,6 +104,7 @@ class InjectOddooProductJob < ApplicationJob
         #puts "Saved new option? #{option.save}"
         puts 'here'
       end
+      puts "saving product after initializing options: #{new_product.save}"
 
       puts new_product.options.size
       #puts "Saving product after adding options: #{new_product.save}"
@@ -106,6 +133,8 @@ class InjectOddooProductJob < ApplicationJob
           variant_hash.sku = variant['code']
           puts "added sku: #{variant_hash.sku}"
         end
+
+        variant_hash.option1 = variant['name']
 
         #puts 'first hash print: '
         #puts JSON.pretty_generate(variant_hash)
@@ -139,20 +168,20 @@ class InjectOddooProductJob < ApplicationJob
             case index
             when 0
               variant_hash.option1 = new_option_name
-            when 1
-              variant_hash.option2 = new_option_name
-            # title is our first option here
-            when 2
-              variant_hash.option3 = new_option_name
+              puts "set option 1"
+            # when 1
+            #   variant_hash.option2 = new_option_name
+            #   puts "set option 2: #{variant_hash.option2}"
+            # # title is our first option here
+            # when 2
+            #   variant_hash.option3 = new_option_name
+            #   puts "set option 3"
             end
-
-            puts 'here'
-            puts "Saved variant hash? #{variant_hash.save}"
-            puts 'past issue'
           else
             puts 'thought there were no attribute values for this attribute'
           end
         end
+        puts "Saved variant hash? #{variant_hash.save}"
         #new_product.save
         puts "about to share variant hash id"
         puts "variant hash id: #{variant_hash.id}"
