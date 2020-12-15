@@ -4,22 +4,12 @@ class CollectOddooProductsJob < ApplicationJob
   def perform(*args)
     # Do something later
     this_odoo_instance = OdooInstance.last
-    puts this_odoo_instance.url
-    # url = "https://demo56.odoo.com"
-    # db = "demo56"
-    # username = "jack@assembleinc.com"
-    # #API KEY
-    # password = "c1d384f62e88c92daaf52201448ea630069f8412"
     url = this_odoo_instance.url
     db = this_odoo_instance.db
     username = this_odoo_instance.username
-    puts username
     password = this_odoo_instance.password
-    puts password
-    puts "got through initialization"
     common = XMLRPC::Client.new2("#{url}/xmlrpc/2/common")
     uid = common.call('authenticate', db, username, password, {})
-    puts uid
     models = XMLRPC::Client.new2("#{url}/xmlrpc/2/object").proxy
     models.execute_kw(db, uid, password,
     'product.template', 'check_access_rights',
@@ -32,9 +22,7 @@ class CollectOddooProductsJob < ApplicationJob
 
     product_records = models.execute_kw(db, uid, password,
     'product.template', 'read',
-    [[9]])
-    puts product_records
-    #[ids])
+    [ids])
 
     ### FOR TESTING ###
     #product_records = [product_records[0]]

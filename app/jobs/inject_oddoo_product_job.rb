@@ -57,11 +57,7 @@ class InjectOddooProductJob < ApplicationJob
       #use shopify api gem to talk to shopify here
       require 'net/https'
       require 'json'
-      puts "here"
       shop_url = "https://#{API_KEY}:#{PASSWORD}@#{SHOP_NAME}.myshopify.com" + "/admin/api/2020-10/products.json"
-
-      puts shop_url
-
 
       odoo_product_atrribute_ids = product_rec_hash['attribute_line_ids']
 
@@ -139,16 +135,13 @@ class InjectOddooProductJob < ApplicationJob
       response = http.request(request)
       puts response.body
       response_hash = JSON.parse(response.body)
-      #saved_product_shopify = false
 
-      if saved_product_shopify
+      if response_hash['product'].key?("id")
         this_product_model.push_status = "Success"
       else
         this_product_model.push_status = "Failed"
       end
-
-
-      #this_product_model.save
+      this_product_model.save
     else
       #this product already exists, we want to go ahead and update this product now
       puts 'we should update this product'
@@ -160,8 +153,6 @@ class InjectOddooProductJob < ApplicationJob
   #returns false if...well just apply binary logic
   #i hate this code but i dont see an alternative
   def check_for_redundant_variant(variants, variant_to_check)
-    puts "called check for redundant"
-    puts variants.size
     #if there are no existing variants, redundancy is not possible
     if variants.size == 0
       return false
@@ -180,8 +171,6 @@ class InjectOddooProductJob < ApplicationJob
       if variant_to_check.key?("option1") && variant_to_check.key?("option2") && variant_to_check.key?("option3")
         curr_variant_option_count = 3
       end
-
-      puts curr_variant_option_count
 
       #then we compare those options
       case curr_variant_option_count
