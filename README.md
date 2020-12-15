@@ -1,24 +1,4 @@
-# README
+# Odoo => Shopify product connector
 
-This README would normally document whatever steps are necessary to get the
-application up and running.
-
-Things you may want to cover:
-
-* Ruby version
-
-* System dependencies
-
-* Configuration
-
-* Database creation
-
-* Database initialization
-
-* How to run the test suite
-
-* Services (job queues, cache servers, search engines, etc.)
-
-* Deployment instructions
-
-* ...
+### navigate to /connector/index to get started! Bes sure to have an Odoo db url, db name, admin username and admin password (an api key) ready.
+### as well as a Shopify store name (domain), password and api key.
