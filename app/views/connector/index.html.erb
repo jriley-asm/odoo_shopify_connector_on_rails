@@ -1,3 +1,52 @@
+<%= form_with url: '/connector/make_new_shopify_instance', model: @shopify_instance do |form| %>
+  <h2>Enter Shopify details</h2>
+  <div>
+    <%= form.label :api_key %><br>
+    <%= form.text_field :api_key %>
+  </div>
+
+  <div>
+    <%= form.label :password %><br>
+    <%= form.text_field :password %>
+  </div>
+
+  <div>
+    <%= form.label :shop_name %><br>
+    <%= form.text_field :shop_name %>
+  </div>
+
+  <div>
+    <%= form.submit %>
+  </div>
+<% end %>
+
+<%= form_with url: '/connector/make_new_odoo_instance', model: @odoo_instance do |form| %>
+  <h2>Enter Odoo detials</h2>
+  <div>
+    <%= form.label :url %><br>
+    <%= form.text_field :url %>
+  </div>
+
+  <div>
+    <%= form.label :db %><br>
+    <%= form.text_field :db %>
+  </div>
+
+  <div>
+    <%= form.label :username %><br>
+    <%= form.text_field :username %>
+  </div>
+
+  <div>
+    <%= form.label :password %><br>
+    <%= form.text_field :password %>
+  </div>
+
+  <div>
+    <%= form.submit %>
+  </div>
+<% end %>
+
 <p>
   <%= link_to 'Queue New Odoo Product Collection Job', "/connector/queue_get_products_job" %>
 </p>

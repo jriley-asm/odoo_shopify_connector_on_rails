@@ -1,20 +1,29 @@
 class InjectOddooProductJob < ApplicationJob
   queue_as :inject_products
+  #lazy
+  this_shopify_instance = ShopifyInstance.last
 
-  API_KEY = "f4d3179bd388e45e631e0f147a2c6027"
-  PASSWORD = "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"
-  SHOP_NAME = "test-store-4325"
+  # API_KEY = "f4d3179bd388e45e631e0f147a2c6027"
+  # PASSWORD = "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"
+  # SHOP_NAME = "test-store-4325"
+  API_KEY = this_shopify_instance.api_key
+  PASSWORD = this_shopify_instance.password
+  SHOP_NAME = this_shopify_instance.shop_name
 
   def perform(*args)
     #get product id
     product_rec_hash = args[0]
     variant_id_arr = args[1]
-
-    url = "https://demo56.odoo.com"
-    db = "demo56"
-    username = "jack@assembleinc.com"
-    #API KEY
-    password = "c1d384f62e88c92daaf52201448ea630069f8412"
+    this_odoo_instance = OdooInstance.last
+    # url = "https://demo56.odoo.com"
+    # db = "demo56"
+    # username = "jack@assembleinc.com"
+    # #API KEY
+    # password = "c1d384f62e88c92daaf52201448ea630069f8412"
+    url = this_odoo_instance.url
+    db = this_odoo_instance.db
+    username = this_odoo_instance.username
+    password = this_odoo_instance.password
     common = XMLRPC::Client.new2("#{url}/xmlrpc/2/common")
     uid = common.call('authenticate', db, username, password, {})
     models = XMLRPC::Client.new2("#{url}/xmlrpc/2/object").proxy

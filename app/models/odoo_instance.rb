@@ -1,0 +1,2 @@
+class OdooInstance < ApplicationRecord
+end
