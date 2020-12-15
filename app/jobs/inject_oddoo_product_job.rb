@@ -3,23 +3,17 @@ class InjectOddooProductJob < ApplicationJob
   #lazy
   this_shopify_instance = ShopifyInstance.last
 
-  # API_KEY = "f4d3179bd388e45e631e0f147a2c6027"
-  # PASSWORD = "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"
-  # SHOP_NAME = "test-store-4325"
   API_KEY = this_shopify_instance.api_key
   PASSWORD = this_shopify_instance.password
   SHOP_NAME = this_shopify_instance.shop_name
 
   def perform(*args)
     #get product id
+    #this is the main product
     product_rec_hash = args[0]
     variant_id_arr = args[1]
     this_odoo_instance = OdooInstance.last
-    # url = "https://demo56.odoo.com"
-    # db = "demo56"
-    # username = "jack@assembleinc.com"
-    # #API KEY
-    # password = "c1d384f62e88c92daaf52201448ea630069f8412"
+
     url = this_odoo_instance.url
     db = this_odoo_instance.db
     username = this_odoo_instance.username
@@ -30,35 +24,28 @@ class InjectOddooProductJob < ApplicationJob
     models.execute_kw(db, uid, password,
     'product.product', 'check_access_rights',
     ['read'], {raise_exception: false})
-
+    #these are the variants for said product
     variants = models.execute_kw(db, uid, password,
     'product.product', 'read',
     [variant_id_arr])
 
-    #puts JSON.pretty_generate(variants[0])
 
-    #create a new product entry, this is how we keep track of the products status outside of the job
-    #connect and authenticate with odoo
-
-    #make sure this product is both valid and unique; if we already have this product in our local DB, don't create a new one.
 
     puts "product variant count:  #{variants.length}"
-
+    #make sure this product is both valid and unique; if we already have this product in our local DB, don't create a new one.
+    ### AWS STEP GATE HERE ###
     if Product.where(odoo_id: product_rec_hash['id']).count == 0
       puts "working on product: #{product_rec_hash['name']}"
       this_product_model = Product.new
       this_product_model.odoo_id = Integer(product_rec_hash['id'])
       this_product_model.name = product_rec_hash['name']
-      #as in this is a new product
       this_product_model.pull_status = "Success"
       #only want to inject the product if we actually got a product from odoo this iteration of the queue
-      ### AWS STEP GATE HERE ###
-
-      #use shopify api gem to talk to shopify here
       require 'net/https'
       require 'json'
       shop_url = "https://#{API_KEY}:#{PASSWORD}@#{SHOP_NAME}.myshopify.com" + "/admin/api/2020-10/products.json"
 
+      #need odoo "attributes" to create shopify "options"
       odoo_product_atrribute_ids = product_rec_hash['attribute_line_ids']
 
       attributes = models.execute_kw(db, uid, password,
@@ -115,6 +102,7 @@ class InjectOddooProductJob < ApplicationJob
         #else do nothing
       end
 
+      #for shopify
       product = {
         "product" => {
           "title" => product_rec_hash['name'],
@@ -131,9 +119,10 @@ class InjectOddooProductJob < ApplicationJob
       request['X-Shopify-Access-Token'] = PASSWORD
       request['Content-Type'] = "application/json"
 
-      #request = Net::HTTP::Get.new URI(shop_url)#, body: product)
       response = http.request(request)
       puts response.body
+
+      #use this for validation of delivery
       response_hash = JSON.parse(response.body)
 
       if response_hash['product'].key?("id")
@@ -141,6 +130,7 @@ class InjectOddooProductJob < ApplicationJob
       else
         this_product_model.push_status = "Failed"
       end
+      #use this to prevent redundant SKUs
       this_product_model.save
     else
       #this product already exists, we want to go ahead and update this product now

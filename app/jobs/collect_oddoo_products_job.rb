@@ -17,15 +17,12 @@ class CollectOddooProductsJob < ApplicationJob
     ids = models.execute_kw(db, uid, password,
     'product.template', 'search',
     [[]])
+
     # now that we have the ids we need, lets go ahead and batch read these products
     #this returns an array of json objects representing the products
-
     product_records = models.execute_kw(db, uid, password,
     'product.template', 'read',
     [ids])
-
-    ### FOR TESTING ###
-    #product_records = [product_records[0]]
 
     #put all these variant ids into an Array
     #this should be a 2D arr
@@ -38,9 +35,6 @@ class CollectOddooProductsJob < ApplicationJob
     end
 
     require 'json'
-
-    #puts JSON.pretty_generate(product_records)
-
     ### AWS STEP GATE HERE ###
     # make sure we actually got products correctly
     if product_records.kind_of?(Array)
